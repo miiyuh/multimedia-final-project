@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { useToast } from './use-toast';
+import { useMemo } from 'react';
 
 interface CaseState {
   userId: number;
@@ -122,14 +123,14 @@ export function CaseStateProvider({ children }: { children: React.ReactNode }) {
     });
   };
   
-  const contextValue = {
-    userId,
-    timeRemaining,
-    caseProgress,
-    currentStep,
-    updateCaseProgress,
-    saveCase
-  };
+  const contextValue = useMemo(() => ({
+  userId,
+  timeRemaining,
+  caseProgress,
+  currentStep,
+  updateCaseProgress,
+  saveCase
+  }), [userId, timeRemaining, caseProgress, currentStep]);
   
   return React.createElement(
     CaseStateContext.Provider,
