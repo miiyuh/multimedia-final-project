@@ -6,22 +6,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const distPath = path.join(__dirname, "../dist");
-const indexHtml = path.join(distPath, "index.html");
 
-// ✅ Serve static assets FIRST
+const distPath = path.join(__dirname, "../dist");
+const indexPath = path.join(distPath, "index.html");
+
+// ✅ Serve static files FIRST
 app.use(express.static(distPath));
 
-// ✅ API endpoints would go here
-// e.g. app.get("/api/suspects", ...)
+// ✅ (Optional) Your /api routes here, if any
 
-// ✅ Fallback route (for React SPA)
+// ✅ Fallback for SPA (must come LAST)
 app.get("*", (_req, res) => {
-  res.sendFile(indexHtml);
+  res.sendFile(indexPath);
 });
 
-// ✅ Start server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`✅ Server running on http://localhost:${port}`);
+  console.log(`✅ Server running at http://localhost:${port}`);
 });
