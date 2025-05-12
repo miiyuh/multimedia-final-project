@@ -1,82 +1,117 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import path from "path";
-import { fileURLToPath } from "url"; // Import for __dirname emulation
-
-// Define __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import express, { Request, Response } from "express";
+import cors from "cors";
+import { z } from "zod";
+import { storage } from "./storage";
+import { insertUserSchema, insertUserProgressSchema } from "./schema";
 
 const app = express();
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
 
-// Add custom logging for API routes
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+// ---- API ROUTES ----
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
+// Suspects
+app.get("/api/suspects", async (_req, res) => {
+  res.json(await storage.getSuspects());
 });
 
-// Serve audio files from /public/sounds via /sounds
-app.use(
-  "/sounds",
-  express.static(path.join(__dirname, "..", "public/sounds"))
-);
+app.get("/api/suspects/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  const suspect = await storage.getSuspect(id);
+  suspect ? res.json(suspect) : res.status(404).json({ message: "Suspect not found" });
+});
 
-// Main async setup
-(async () => {
-  const server = await registerRoutes(app);
+// Evidence
+app.get("/api/evidence", async (_req, res) => {
+  res.json(await storage.getEvidenceItems());
+});
 
-  // Error handling middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
-  });
+app.get("/api/evidence/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  const evidence = await storage.getEvidenceItem(id);
+  evidence ? res.json(evidence) : res.status(404).json({ message: "Evidence not found" });
+});
 
-  // Setup Vite in development
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+// Decisions
+app.get("/api/decisions", async (_req, res) => {
+  res.json(await storage.getDecisions());
+});
+
+app.get("/api/decisions/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  const decision = await storage.getDecision(id);
+  decision ? res.json(decision) : res.status(404).json({ message: "Decision not found" });
+});
+
+app.post("/api/decisions/:id/choose", async (req, res) => {
+  const id = parseInt(req.params.id);
+  const schema = z.object({ userId: z.number(), optionId: z.string() });
+  const result = schema.safeParse(req.body);
+
+  if (!result.success) return res.status(400).json({ error: result.error });
+
+  const decision = await storage.getDecision(id);
+  if (!decision) return res.status(404).json({ message: "Decision not found" });
+
+  const { userId, optionId } = result.data;
+  const option = (decision.options as any[]).find((o) => o.id === optionId);
+  if (!option) return res.status(400).json({ message: "Invalid optionId" });
+
+  let progress = await storage.getUserProgress(userId);
+  if (!progress) {
+    progress = await storage.createUserProgress({
+      userId,
+      currentStep: (decision.nextStates as Record<string, string>)[optionId] ?? "intro",
+      unlockedEvidence: [],
+      decisions: { [id]: optionId },
+      timeRemaining: 172800,
+    });
   } else {
-    serveStatic(app);
+    progress = await storage.updateUserProgress(userId, {
+      currentStep: (decision.nextStates as Record<string, string>)[optionId] ?? progress.currentStep,
+      decisions: { ...progress.decisions, [id]: optionId },
+    });
   }
 
-  const port = 5000;
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    }
-  );
-})();
+  res.json({ success: true, outcome: option.outcome, userProgress: progress });
+});
+
+// User Progress
+app.get("/api/progress/:userId", async (req, res) => {
+  const userId = parseInt(req.params.userId);
+  const progress = await storage.getUserProgress(userId);
+  progress ? res.json(progress) : res.status(404).json({ message: "Not found" });
+});
+
+app.put("/api/progress/:userId", async (req, res) => {
+  const userId = parseInt(req.params.userId);
+  const result = insertUserProgressSchema.partial().safeParse(req.body);
+  if (!result.success) return res.status(400).json({ error: result.error });
+
+  const updated = await storage.updateUserProgress(userId, result.data);
+  updated ? res.json(updated) : res.status(404).json({ message: "Not found" });
+});
+
+// Users
+app.post("/api/users", async (req, res) => {
+  const result = insertUserSchema.safeParse(req.body);
+  if (!result.success) return res.status(400).json({ error: result.error });
+
+  const existing = await storage.getUserByUsername(result.data.username);
+  if (existing) return res.status(409).json({ message: "Username exists" });
+
+  const user = await storage.createUser(result.data);
+  await storage.createUserProgress({
+    userId: user.id,
+    currentStep: "intro",
+    unlockedEvidence: [1, 2, 3, 4, 5, 6],
+    decisions: {},
+    timeRemaining: 172800,
+  });
+
+  res.status(201).json(user);
+});
+
+// ---- START SERVER ----
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server running on http://localhost:${port}`));

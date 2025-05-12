@@ -1,5 +1,7 @@
 {
+  "builds": [],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1.ts" }
+    { "src": "/api/(.*)", "dest": "/server.ts" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
