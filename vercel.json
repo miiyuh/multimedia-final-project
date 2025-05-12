@@ -1,7 +1,11 @@
 {
-  "builds": [],
+  "functions": {
+    "api/server.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "routes": [
-    { "src": "/api/(.*)", "dest": "/server.ts" },
+    { "src": "/api/(.*)", "dest": "/api/server.ts" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

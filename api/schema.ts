@@ -63,7 +63,11 @@ export const userProgress = pgTable("user_progress", {
   timeRemaining: integer("time_remaining").notNull().default(172800),
   lastUpdated: timestamp("last_updated").notNull().defaultNow()
 });
-export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
-  id: true,
-  lastUpdated: true
+export const insertUserProgressSchema = z.object({
+  userId: z.number(),
+  currentStep: z.string().optional(),
+  unlockedEvidence: z.array(z.number()).optional(),
+  decisions: z.record(z.string(), z.string()).optional(),
+  timeRemaining: z.number().optional(),
 });
+

@@ -217,8 +217,10 @@ class MemStorage {
     const updated: UserProgress = {
       ...progress,
       ...updates,
+      unlockedEvidence: updates.unlockedEvidence ?? progress.unlockedEvidence,
       lastUpdated: new Date(),
     };
+
     this.userProgress.set(progress.id, updated);
     return updated;
   }
