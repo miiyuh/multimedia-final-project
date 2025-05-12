@@ -19,7 +19,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!parsed.success) return res.status(400).json({ message: 'Invalid data', errors: parsed.error });
 
   const { userId, optionId } = parsed.data;
-  const decision = await storage.getDecision(id);
+  const decision = await storage.getDecision(id) as { 
+    id: number; 
+    options: { id: string; outcome: string }[]; 
+    nextStates: Record<string, string>; 
+  } | null;
   if (!decision) return res.status(404).json({ message: 'Decision not found' });
 
   const option = decision.options.find(opt => opt.id === optionId);
@@ -37,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } else {
     progress = await storage.updateUserProgress(userId, {
       currentStep: decision.nextStates[optionId] || progress.currentStep,
-      decisions: { ...progress.decisions, [decision.id]: optionId }
+      decisions: { ...(progress.decisions || {}), [decision.id]: optionId }
     });
   }
 
