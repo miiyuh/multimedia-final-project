@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../../storage';
+import { storage } from '../../storage';
 import { z } from 'zod';
 
 const choiceSchema = z.object({

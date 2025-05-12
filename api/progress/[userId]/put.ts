@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../../storage';
-import { insertUserProgressSchema } from '../../../schema';
+import { storage } from '../../storage';
+import { insertUserProgressSchema } from '../../schema';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'PUT') {
