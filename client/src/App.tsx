@@ -1,9 +1,10 @@
 import { Route, Switch } from "wouter";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Navbar from "@/components/layout/navbar";
 import Footer from "@/components/layout/footer";
 import NotFound from "@/pages/not-found";
+import { clickSound } from "@/utils/sound"; // Import the click sound
 
 // Lazy load pages for better performance
 const Home = lazy(() => import("@/pages/home"));
@@ -29,6 +30,23 @@ const PageLoader = () => (
 );
 
 function App() {
+  // Add global button click sound
+  useEffect(() => {
+  const handleButtonClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === "BUTTON") {
+      console.log("Button clicked:", target); // Log the button element
+      clickSound.play(); // Play the click sound for all button clicks
+    }
+  };
+
+  document.addEventListener("click", handleButtonClick);
+
+  return () => {
+    document.removeEventListener("click", handleButtonClick);
+  };
+}, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-dark-300 text-light-200">
       <Navbar />
